@@ -66,3 +66,16 @@ function viewDepartments(): void {
     startApp();
   });
 }
+
+function viewEmployees(): void {
+  const query = `SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name AS department, role.salary, employee.is_manager,
+                        (SELECT CONCAT(manager.first_name, ' ', manager.last_name) FROM employee manager WHERE manager.id = employee.manager_id) AS manager
+                 FROM employee
+                 LEFT JOIN role ON employee.role_id = role.id
+                 LEFT JOIN department ON role.department_id = department.id`;
+  db.query(query, (err, res) => {
+    if (err) throw err;
+    console.table(res.rows);
+    startApp();
+  });
+}
