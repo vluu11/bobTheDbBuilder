@@ -79,3 +79,28 @@ function viewEmployees(): void {
     startApp();
   });
 }
+
+function viewManagers(): void {
+  const query = `
+    SELECT 
+      managers.id, 
+      managers.first_name, 
+      managers.last_name, 
+      role.title, 
+      department.name AS department, 
+      role.salary, 
+      managers.is_manager
+    FROM managers
+    LEFT JOIN role ON managers.role_id = role.id
+    LEFT JOIN department ON role.department_id = department.id
+  `;
+
+  db.query(query, (err, res) => {
+    if (err) {
+      console.error("Error fetching managers:", err);
+      return; // Exit the function on error
+    }
+    console.table(res.rows);
+    startApp(); // Call the startApp function after displaying the managers
+  });
+}
