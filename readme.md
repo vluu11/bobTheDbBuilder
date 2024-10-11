@@ -26,7 +26,7 @@ To use this app, the user should run `npm run start` in the terminal. This will 
 
 Vuong Luu
  - repo: 
- - video: 
+ - video: https://drive.google.com/file/d/1llxz0TD8Z3VKTWzx1KBmPKWgl6r4A0Ep/view
 
 ## License
     
