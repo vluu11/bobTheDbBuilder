@@ -58,3 +58,11 @@ function startApp(): void {
     }
   });
 }
+
+function viewDepartments(): void {
+  db.query('SELECT * FROM department', (err, res) => {
+    if (err) throw err;
+    console.table(res.rows);
+    startApp();
+  });
+}
