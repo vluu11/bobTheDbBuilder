@@ -13,9 +13,8 @@ function startApp() {
             'Add a department',
             'Add a role',
             'Add an employee',
-            'Promote to Manager',
-            'Demote manager',
             'Update employee role',
+            'Update managers',
             'Exit'
         ]
     }).then((answer) => {
@@ -41,14 +40,11 @@ function startApp() {
             case 'Add an employee':
                 addEmployee();
                 break;
-            case 'Promote to Manager':
-                promoteToManager();
-                break;
-            case 'Demote manager':
-                demoteManager();
-                break;
             case 'Update employee role':
                 updateEmployeeRole();
+                break;
+            case 'Update managers':
+                updateManagers();
                 break;
             default:
                 db.end();
@@ -281,12 +277,10 @@ function promoteToManager() {
             db.query('UPDATE employee SET is_manager = true WHERE id = $1', [answer.employee_id], (err) => {
                 if (err)
                     throw err;
-                db.query('INSERT INTO managers SELECT * FROM employee WHERE id = $1', [answer.employee_id], (err) => {
-                    if (err)
-                        throw err;
-                    console.log('Employee promoted to manager.');
-                    startApp();
-                });
+                // Use renderManagerTable logic here to add manager to 'managers' table
+                renderManagerTable();
+                console.log('Employee promoted to manager.');
+                startApp();
             });
         });
     });
@@ -309,17 +303,93 @@ function demoteManager() {
             message: 'Select the manager to demote:',
             choices: managers
         }).then((answer) => {
+            // Step 1: Update the employee's is_manager status to false
             db.query('UPDATE employee SET is_manager = false WHERE id = $1', [answer.employee_id], (err) => {
                 if (err)
                     throw err;
-                db.query('DELETE FROM managers WHERE id = $1', [answer.employee_id], (err) => {
+                // Step 2: Now, delete the manager from the managers table
+                db.query('SELECT * FROM managers', (err, managersRes) => {
                     if (err)
                         throw err;
-                    console.log('Manager demoted.');
-                    startApp();
+                    const employee = res.rows[0]; // Get the first employee from the results
+                    // Log the employee's full name
+                    const employeeFullName = `${employee.first_name} ${employee.last_name}`;
+                    console.log('Answer Employee Full Name:', employeeFullName);
+                    // Now, find the corresponding manager based on first name and last name
+                    const managerToDelete = managersRes.rows.find(manager => manager.first_name === employee.first_name && manager.last_name === employee.last_name);
+                    // Log the result
+                    if (managerToDelete) {
+                        // Proceed to delete the manager from the managers table
+                        db.query('DELETE FROM managers WHERE first_name = $1 AND last_name = $2', [managerToDelete.first_name, managerToDelete.last_name], (err) => {
+                            if (err)
+                                throw err;
+                            console.log('Manager demoted and removed from the managers table.');
+                            startApp();
+                        });
+                        db.query('UPDATE employee SET manager_id = NULL WHERE manager_id = $1', [answer.employee_id]);
+                    }
+                    else {
+                        console.log('No matching manager found to delete.');
+                        startApp();
+                    }
                 });
             });
         });
+    });
+}
+// Function to handle inserting managers to the 'managers' table
+function renderManagerTable() {
+    db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
+        if (err)
+            throw err;
+        // Check if any managers were found
+        if (employeeRes.rows.length === 0) {
+            console.log("No managers found.");
+            return startApp();
+        }
+        db.query('SELECT * FROM managers', (err, managersRes) => {
+            if (err)
+                throw err;
+            const currentManagers = managersRes.rows.map(manager => manager.last_name);
+            // Insert new managers into 'managers' table
+            employeeRes.rows.forEach(manager => {
+                if (!currentManagers.includes(manager.last_name)) {
+                    db.query('INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', [manager.first_name, manager.last_name, manager.role_id, manager.manager_id || null, manager.is_manager], // Set manager_id to null if it is not available
+                    (err, res) => {
+                        if (err) {
+                            console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
+                        }
+                        else {
+                            console.log(`Manager ${manager.first_name} ${manager.last_name} added to managers table.`);
+                        }
+                    });
+                }
+                else {
+                    console.log(`Manager ${manager.first_name} ${manager.last_name} already exists in the managers table.`);
+                }
+            });
+        });
+    });
+}
+function updateManagers() {
+    inquirer
+        .prompt({
+        type: 'list',
+        name: 'update',
+        message: 'Would you like to promote or demote an employee?',
+        choices: [
+            'Promote an employee',
+            'Demote a manager'
+        ]
+    }).then(res => {
+        switch (res.update) {
+            case 'Promote an employee':
+                promoteToManager();
+                break;
+            case 'Demote a manager':
+                demoteManager();
+                break;
+        }
     });
 }
 // Start the application
