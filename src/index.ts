@@ -154,3 +154,120 @@ function addRole(): void {
     });
   });
 }
+
+function addEmployee(): void {
+  db.query('SELECT * FROM role', (err, roleRes) => {
+    if (err) throw err;
+
+    const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
+      name: role.title,
+      value: role.id
+    }));
+
+    db.query('SELECT * FROM employee', (err, employeeRes) => {
+      if (err) throw err;
+
+      const managers = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
+        name: `${employee.first_name} ${employee.last_name}`,
+        value: employee.id,
+      }));
+
+      // Use -1 to indicate no manager
+      managers.push({ name: 'None', value: -1 });
+
+      inquirer.prompt([
+        {
+          type: 'input',
+          name: 'first_name',
+          message: 'Enter employee first name:',
+        },
+        {
+          type: 'input',
+          name: 'last_name',
+          message: 'Enter employee last name:',
+        },
+        {
+          type: 'list',
+          name: 'role_id',
+          message: 'Select the role for this employee:',
+          choices: roles
+        },
+        {
+          type: 'list',
+          name: 'manager_id',
+          message: 'Select the employee’s manager:',
+          choices: managers
+        }
+      ]).then((answer: Answers) => {
+        if (answer.manager_id !== -1) { // Check against -1
+          const selectedManager = employeeRes.rows.find((emp: { id: number; is_manager: boolean; }) => emp.id === answer.manager_id);
+          
+          if (selectedManager && !selectedManager.is_manager) {
+            console.log('The selected employee is not a manager. Please select a valid manager.');
+            return startApp(); // Restart the app if the selected employee is not a manager
+          }
+        }
+
+        db.query('INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', 
+                 [answer.first_name, answer.last_name, answer.role_id, answer.manager_id === -1 ? null : answer.manager_id, false], 
+                 (err) => {
+          if (err) throw err;
+          console.log(`Added employee: ${answer.first_name} ${answer.last_name}`);
+          startApp();
+        });
+      });
+    });
+  });
+}
+
+function updateEmployeeRole(): void {
+  db.query('SELECT * FROM employee', (err, employeeRes) => {
+    if (err) throw err;
+
+    const employees = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
+      name: `${employee.first_name} ${employee.last_name}`,
+      value: employee.id
+    }));
+
+    db.query('SELECT * FROM role', (err, roleRes) => {
+      if (err) throw err;
+
+      const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
+        name: role.title,
+        value: role.id
+      }));
+
+      inquirer.prompt([
+        {
+          type: 'list',
+          name: 'employee_id',
+          message: 'Select the employee whose role you want to update:',
+          choices: employees
+        },
+        {
+          type: 'list',
+          name: 'role_id',
+          message: 'Select the new role for this employee:',
+          choices: roles
+        }
+      ]).then((answer: Answers) => {
+        db.query('UPDATE employee SET role_id = $1 WHERE id = $2', 
+                 [answer.role_id, answer.employee_id], 
+                 (err) => {
+          if (err) throw err;
+          console.log(`Updated employee's role to: ${answer.role_id}`);
+        });
+
+        db.query('UPDATE managers SET role_id = $1 WHERE id = $2', 
+                 [answer.role_id, answer.employee_id], 
+                 (err) => {
+          if (err) throw err;
+          console.log(`Updated manager's role to: ${answer.role_id}`);
+          startApp();
+        });
+      });
+    });
+  });
+}
+
+
