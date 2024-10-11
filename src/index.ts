@@ -270,4 +270,95 @@ function updateEmployeeRole(): void {
   });
 }
 
+function updateEmployeeRole(): void {
+  db.query('SELECT * FROM employee', (err, employeeRes) => {
+    if (err) throw err;
+
+    const employees = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
+      name: `${employee.first_name} ${employee.last_name}`,
+      value: employee.id
+    }));
+
+    db.query('SELECT * FROM role', (err, roleRes) => {
+      if (err) throw err;
+
+      const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
+        name: role.title,
+        value: role.id
+      }));
+
+      inquirer.prompt([
+        {
+          type: 'list',
+          name: 'employee_id',
+          message: 'Select the employee whose role you want to update:',
+          choices: employees
+        },
+        {
+          type: 'list',
+          name: 'role_id',
+          message: 'Select the new role for this employee:',
+          choices: roles
+        }
+      ]).then((answer: Answers) => {
+        db.query('UPDATE employee SET role_id = $1 WHERE id = $2', 
+                 [answer.role_id, answer.employee_id], 
+                 (err) => {
+          if (err) throw err;
+          console.log(`Updated employee's role to: ${answer.role_id}`);
+        });
+
+        db.query('UPDATE managers SET role_id = $1 WHERE id = $2', 
+                 [answer.role_id, answer.employee_id], 
+                 (err) => {
+          if (err) throw err;
+          console.log(`Updated manager's role to: ${answer.role_id}`);
+          startApp();
+        });
+      });
+    });
+  });
+}
+__________________________________________________________________________________
+function renderManagerTable(): void {
+  // Query to get employees who are managers
+  db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
+    if (err) throw err;
+
+    // Check if any managers were found
+    if (employeeRes.rows.length === 0) {
+      console.log("No managers found.");
+      return startApp(); // Use return to exit the function
+    }
+
+    db.query('SELECT * FROM managers', (err, managersRes) => {
+      if (err) throw err;
+
+      const currentManagers = managersRes.rows.map((manager: { id: number; }) => manager.id); // Get an array of current manager IDs
+
+      // Prepare to insert managers into the 'managers' table
+      employeeRes.rows.forEach((manager: { id: number; first_name: string; last_name: string; role_id: number; manager_id: number; is_manager: boolean; }) => {
+        // Check if the manager is already in the managers table
+        if (!currentManagers.includes(manager.id)) {
+          db.query(
+            'INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)',
+            [manager.first_name, manager.last_name, manager.role_id, manager.manager_id, manager.is_manager],
+            (err) => {
+              if (err) {
+                console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
+              } else {
+                console.log(`Manager ${manager.first_name} ${manager.last_name} added to managers table.`);
+              }
+            }
+          );
+        } else {
+          console.log(`Manager ${manager.first_name} ${manager.last_name} already exists in the managers table.`);
+        }
+      });
+    });
+  });
+
+  startApp();
+}
+
 
