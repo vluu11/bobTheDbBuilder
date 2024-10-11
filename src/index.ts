@@ -104,3 +104,17 @@ function viewManagers(): void {
     startApp(); // Call the startApp function after displaying the managers
   });
 }
+
+function addDepartment(): void {
+  inquirer.prompt({
+    type: 'input',
+    name: 'name',
+    message: 'Enter department name:'
+  }).then((answer: Answers) => {
+    db.query('INSERT INTO department (name) VALUES ($1)', [answer.name], (err) => {
+      if (err) throw err;
+      console.log(`Added department: ${answer.name}`);
+      startApp();
+    });
+  });
+}
