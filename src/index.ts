@@ -1,4 +1,3 @@
-
 import inquirer, { Answers } from 'inquirer'; // import Inquirer for prompts
 import db from './db.js'; // import your PostgreSQL connection
 
@@ -60,12 +59,24 @@ function startApp(): void {
 }
 
 function viewDepartments(): void {
-  db.query('SELECT * FROM department', (err, res) => {
+  db.query('SELECT * FROM department', (err: Error | null, res: any) => {
     if (err) throw err;
     console.table(res.rows);
     startApp();
   });
 }
+
+function viewRoles(): void {
+  const query = `SELECT role.id, role.title, department.name AS department, role.salary
+                 FROM role
+                 LEFT JOIN department ON role.department_id = department.id`;
+  db.query(query, (err: Error | null, res: any) => {
+    if (err) throw err;
+    console.table(res.rows);
+    startApp();
+  });
+}
+
 
 function viewEmployees(): void {
   const query = `SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name AS department, role.salary, employee.is_manager,
@@ -73,7 +84,7 @@ function viewEmployees(): void {
                  FROM employee
                  LEFT JOIN role ON employee.role_id = role.id
                  LEFT JOIN department ON role.department_id = department.id`;
-  db.query(query, (err, res) => {
+  db.query(query, (err: Error | null, res: any) => {
     if (err) throw err;
     console.table(res.rows);
     startApp();
@@ -95,7 +106,7 @@ function viewManagers(): void {
     LEFT JOIN department ON role.department_id = department.id
   `;
 
-  db.query(query, (err, res) => {
+  db.query(query, (err: Error | null, res: any) => {
     if (err) {
       console.error("Error fetching managers:", err);
       return; // Exit the function on error
@@ -111,7 +122,7 @@ function addDepartment(): void {
     name: 'name',
     message: 'Enter department name:'
   }).then((answer: Answers) => {
-    db.query('INSERT INTO department (name) VALUES ($1)', [answer.name], (err) => {
+    db.query('INSERT INTO department (name) VALUES ($1)', [answer.name], (err: Error | null) => {
       if (err) throw err;
       console.log(`Added department: ${answer.name}`);
       startApp();
@@ -120,7 +131,7 @@ function addDepartment(): void {
 }
 
 function addRole(): void {
-  db.query('SELECT * FROM department', (err, res) => {
+  db.query('SELECT * FROM department', (err: Error | null, res: any) => {
     if (err) throw err;
 
     const departments = res.rows.map((department: { name: string; id: number; }) => ({
@@ -146,7 +157,7 @@ function addRole(): void {
         choices: departments
       }
     ]).then((answer: Answers) => {
-      db.query('INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)', [answer.title, answer.salary, answer.department_id], (err) => {
+      db.query('INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3)', [answer.title, answer.salary, answer.department_id], (err: Error | null) => {
         if (err) throw err;
         console.log(`Added role: ${answer.title}`);
         startApp();
@@ -156,7 +167,7 @@ function addRole(): void {
 }
 
 function addEmployee(): void {
-  db.query('SELECT * FROM role', (err, roleRes) => {
+  db.query('SELECT * FROM role', (err: Error | null, roleRes: any) => {
     if (err) throw err;
 
     const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
@@ -164,7 +175,7 @@ function addEmployee(): void {
       value: role.id
     }));
 
-    db.query('SELECT * FROM employee', (err, employeeRes) => {
+    db.query('SELECT * FROM employee', (err: Error | null, employeeRes: any) => {
       if (err) throw err;
 
       const managers = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
@@ -210,7 +221,7 @@ function addEmployee(): void {
 
         db.query('INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', 
                  [answer.first_name, answer.last_name, answer.role_id, answer.manager_id === -1 ? null : answer.manager_id, false], 
-                 (err) => {
+                 (err: Error | null) => {
           if (err) throw err;
           console.log(`Added employee: ${answer.first_name} ${answer.last_name}`);
           startApp();
@@ -221,7 +232,7 @@ function addEmployee(): void {
 }
 
 function updateEmployeeRole(): void {
-  db.query('SELECT * FROM employee', (err, employeeRes) => {
+  db.query('SELECT * FROM employee', (err: Error | null, employeeRes: any) => {
     if (err) throw err;
 
     const employees = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
@@ -229,7 +240,7 @@ function updateEmployeeRole(): void {
       value: employee.id
     }));
 
-    db.query('SELECT * FROM role', (err, roleRes) => {
+    db.query('SELECT * FROM role', (err: Error | null, roleRes: any) => {
       if (err) throw err;
 
       const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
@@ -253,14 +264,14 @@ function updateEmployeeRole(): void {
       ]).then((answer: Answers) => {
         db.query('UPDATE employee SET role_id = $1 WHERE id = $2', 
                  [answer.role_id, answer.employee_id], 
-                 (err) => {
+                 (err: Error | null) => {
           if (err) throw err;
           console.log(`Updated employee's role to: ${answer.role_id}`);
         });
 
         db.query('UPDATE managers SET role_id = $1 WHERE id = $2', 
                  [answer.role_id, answer.employee_id], 
-                 (err) => {
+                 (err: Error | null) => {
           if (err) throw err;
           console.log(`Updated manager's role to: ${answer.role_id}`);
           startApp();
@@ -270,59 +281,9 @@ function updateEmployeeRole(): void {
   });
 }
 
-function updateEmployeeRole(): void {
-  db.query('SELECT * FROM employee', (err, employeeRes) => {
-    if (err) throw err;
-
-    const employees = employeeRes.rows.map((employee: { first_name: string; last_name: string; id: number; }) => ({
-      name: `${employee.first_name} ${employee.last_name}`,
-      value: employee.id
-    }));
-
-    db.query('SELECT * FROM role', (err, roleRes) => {
-      if (err) throw err;
-
-      const roles = roleRes.rows.map((role: { title: string; id: number; }) => ({
-        name: role.title,
-        value: role.id
-      }));
-
-      inquirer.prompt([
-        {
-          type: 'list',
-          name: 'employee_id',
-          message: 'Select the employee whose role you want to update:',
-          choices: employees
-        },
-        {
-          type: 'list',
-          name: 'role_id',
-          message: 'Select the new role for this employee:',
-          choices: roles
-        }
-      ]).then((answer: Answers) => {
-        db.query('UPDATE employee SET role_id = $1 WHERE id = $2', 
-                 [answer.role_id, answer.employee_id], 
-                 (err) => {
-          if (err) throw err;
-          console.log(`Updated employee's role to: ${answer.role_id}`);
-        });
-
-        db.query('UPDATE managers SET role_id = $1 WHERE id = $2', 
-                 [answer.role_id, answer.employee_id], 
-                 (err) => {
-          if (err) throw err;
-          console.log(`Updated manager's role to: ${answer.role_id}`);
-          startApp();
-        });
-      });
-    });
-  });
-}
-__________________________________________________________________________________
 function renderManagerTable(): void {
   // Query to get employees who are managers
-  db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
+  db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err: Error | null, employeeRes: any) => {
     if (err) throw err;
 
     // Check if any managers were found
@@ -331,7 +292,7 @@ function renderManagerTable(): void {
       return startApp(); // Use return to exit the function
     }
 
-    db.query('SELECT * FROM managers', (err, managersRes) => {
+    db.query('SELECT * FROM managers', (err: Error | null, managersRes: any) => {
       if (err) throw err;
 
       const currentManagers = managersRes.rows.map((manager: { id: number; }) => manager.id); // Get an array of current manager IDs
@@ -343,7 +304,7 @@ function renderManagerTable(): void {
           db.query(
             'INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)',
             [manager.first_name, manager.last_name, manager.role_id, manager.manager_id, manager.is_manager],
-            (err) => {
+            (err: Error | null) => {
               if (err) {
                 console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
               } else {
@@ -361,4 +322,70 @@ function renderManagerTable(): void {
   startApp();
 }
 
+
+function promoteToManager(): void {
+  db.query('SELECT * FROM employee', (err: Error | null, employeeRes: any) => {
+    if (err) throw err;
+
+    const employeesToBePromoted = employeeRes.rows.filter((employee: { is_manager: boolean; first_name: string; last_name: string; }) => employee.is_manager === false).map((employee: { first_name: string; last_name: string; id: number; }) => ({
+      name: `${employee.first_name} ${employee.last_name}`,
+      value: employee
+    }));
+
+    console.log(employeesToBePromoted);
+
+    inquirer.prompt({
+      type: 'list',
+      name: 'selectedPromotion',
+      message: 'Who would you like to promote?',
+      choices: employeesToBePromoted
+    }).then((res: Answers) => {
+      const selectedId = res.selectedPromotion.id;
+
+      console.log(selectedId);
+
+      db.query('UPDATE employee SET is_manager = TRUE WHERE id = $1', [selectedId], (err: Error | null) => {
+        if (err) throw err;
+        startApp();
+      });
+    });
+  });
+}
+
+function demoteManager(): void {
+  // Step 1: Get the list of managers
+  db.query('SELECT * FROM managers', (err: Error | null, managerRes: any) => {
+    if (err) throw err;
+
+    const managersList = managerRes.rows.map((manager: { first_name: string; last_name: string; id: number; }) => ({
+      name: `${manager.first_name} ${manager.last_name}`,
+      value: manager.id // Use manager ID as the value for easy reference
+    }));
+
+    // Step 2: Prompt to select a manager to demote
+    inquirer.prompt({
+      type: 'list',
+      name: 'selectDemotion',
+      message: 'Select a manager to demote',
+      choices: managersList
+    }).then((res: Answers) => {
+      const selectedId = res.selectDemotion; // Get the selected manager ID
+
+      // Step 3: Update the employee's is_manager status to false
+      db.query('UPDATE employee SET is_manager = false WHERE id = $1', [selectedId], (err: Error | null) => {
+        if (err) throw err;
+        console.log(`Manager with ID ${selectedId} has been demoted.`);
+
+        // Step 4: Remove the manager from the managers table
+        db.query('DELETE FROM managers WHERE id = $1', [selectedId], (err: Error | null) => {
+          if (err) throw err;
+          console.log(`Removed manager with ID ${selectedId} from the managers table.`);
+          startApp(); // Restart the app after completion
+        });
+      });
+    });
+  });
+}
+
+renderManagerTable();
 
