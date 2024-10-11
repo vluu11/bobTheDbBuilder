@@ -105,10 +105,10 @@ function viewManagers() {
     db.query(query, (err, res) => {
         if (err) {
             console.error("Error fetching managers:", err);
-            return; // Exit the function on error
+            return;
         }
         console.table(res.rows);
-        startApp(); // Call the startApp function after displaying the managers
+        startApp();
     });
 }
 function addDepartment() {
@@ -164,6 +164,10 @@ function addEmployee() {
     db.query('SELECT * FROM role', (err, roleRes) => {
         if (err)
             throw err;
+        if (roleRes.rows.length === 0) {
+            console.log("No roles available. Please add a role first.");
+            return startApp();
+        }
         const roles = roleRes.rows.map((role) => ({
             name: role.title,
             value: role.id
@@ -175,7 +179,6 @@ function addEmployee() {
                 name: `${employee.first_name} ${employee.last_name}`,
                 value: employee.id,
             }));
-            // Use -1 to indicate no manager
             managers.push({ name: 'None', value: -1 });
             inquirer.prompt([
                 {
@@ -201,11 +204,11 @@ function addEmployee() {
                     choices: managers
                 }
             ]).then((answer) => {
-                if (answer.manager_id !== -1) { // Check against -1
+                if (answer.manager_id !== -1) {
                     const selectedManager = employeeRes.rows.find((emp) => emp.id === answer.manager_id);
                     if (selectedManager && !selectedManager.is_manager) {
                         console.log('The selected employee is not a manager. Please select a valid manager.');
-                        return startApp(); // Restart the app if the selected employee is not a manager
+                        return startApp();
                     }
                 }
                 db.query('INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', [answer.first_name, answer.last_name, answer.role_id, answer.manager_id === -1 ? null : answer.manager_id, false], (err) => {
@@ -237,122 +240,87 @@ function updateEmployeeRole() {
                 {
                     type: 'list',
                     name: 'employee_id',
-                    message: 'Select the employee whose role you want to update:',
+                    message: 'Select the employee to update their role:',
                     choices: employees
                 },
                 {
                     type: 'list',
                     name: 'role_id',
-                    message: 'Select the new role for this employee:',
+                    message: 'Select the new role:',
                     choices: roles
                 }
             ]).then((answer) => {
                 db.query('UPDATE employee SET role_id = $1 WHERE id = $2', [answer.role_id, answer.employee_id], (err) => {
                     if (err)
                         throw err;
-                    console.log(`Updated employee's role to: ${answer.role_id}`);
-                });
-                db.query('UPDATE managers SET role_id = $1 WHERE id = $2', [answer.role_id, answer.employee_id], (err) => {
-                    if (err)
-                        throw err;
-                    console.log(`Updated manager's role to: ${answer.role_id}`);
+                    console.log('Updated employee role.');
                     startApp();
                 });
             });
         });
     });
 }
-function renderManagerTable() {
-    // Query to get employees who are managers
-    db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
-        if (err)
-            throw err;
-        // Check if any managers were found
-        if (employeeRes.rows.length === 0) {
-            console.log("No managers found.");
-            return startApp(); // Use return to exit the function
-        }
-        db.query('SELECT * FROM managers', (err, managersRes) => {
-            if (err)
-                throw err;
-            const currentManagers = managersRes.rows.map((manager) => manager.id); // Get an array of current manager IDs
-            // Prepare to insert managers into the 'managers' table
-            employeeRes.rows.forEach((manager) => {
-                // Check if the manager is already in the managers table
-                if (!currentManagers.includes(manager.id)) {
-                    db.query('INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', [manager.first_name, manager.last_name, manager.role_id, manager.manager_id, manager.is_manager], (err) => {
-                        if (err) {
-                            console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
-                        }
-                        else {
-                            console.log(`Manager ${manager.first_name} ${manager.last_name} added to managers table.`);
-                        }
-                    });
-                }
-                else {
-                    console.log(`Manager ${manager.first_name} ${manager.last_name} already exists in the managers table.`);
-                }
-            });
-        });
-    });
-    startApp();
-}
 function promoteToManager() {
-    db.query('SELECT * FROM employee', (err, employeeRes) => {
+    db.query('SELECT * FROM employee WHERE is_manager = false', (err, res) => {
         if (err)
             throw err;
-        const employeesToBePromoted = employeeRes.rows.filter((employee) => employee.is_manager === false).map((employee) => ({
+        const employees = res.rows.map((employee) => ({
             name: `${employee.first_name} ${employee.last_name}`,
-            value: employee
+            value: employee.id
         }));
-        console.log(employeesToBePromoted);
+        if (employees.length === 0) {
+            console.log('No employees available to promote.');
+            return startApp();
+        }
         inquirer.prompt({
             type: 'list',
-            name: 'selectedPromotion',
-            message: 'Who would you like to promote?',
-            choices: employeesToBePromoted
-        }).then((res) => {
-            const selectedId = res.selectedPromotion.id;
-            console.log(selectedId);
-            db.query('UPDATE employee SET is_manager = TRUE WHERE id = $1', [selectedId], (err) => {
+            name: 'employee_id',
+            message: 'Select the employee to promote to manager:',
+            choices: employees
+        }).then((answer) => {
+            db.query('UPDATE employee SET is_manager = true WHERE id = $1', [answer.employee_id], (err) => {
                 if (err)
                     throw err;
-                startApp();
-            });
-        });
-    });
-}
-function demoteManager() {
-    // Step 1: Get the list of managers
-    db.query('SELECT * FROM managers', (err, managerRes) => {
-        if (err)
-            throw err;
-        const managersList = managerRes.rows.map((manager) => ({
-            name: `${manager.first_name} ${manager.last_name}`,
-            value: manager.id // Use manager ID as the value for easy reference
-        }));
-        // Step 2: Prompt to select a manager to demote
-        inquirer.prompt({
-            type: 'list',
-            name: 'selectDemotion',
-            message: 'Select a manager to demote',
-            choices: managersList
-        }).then((res) => {
-            const selectedId = res.selectDemotion; // Get the selected manager ID
-            // Step 3: Update the employee's is_manager status to false
-            db.query('UPDATE employee SET is_manager = false WHERE id = $1', [selectedId], (err) => {
-                if (err)
-                    throw err;
-                console.log(`Manager with ID ${selectedId} has been demoted.`);
-                // Step 4: Remove the manager from the managers table
-                db.query('DELETE FROM managers WHERE id = $1', [selectedId], (err) => {
+                db.query('INSERT INTO managers SELECT * FROM employee WHERE id = $1', [answer.employee_id], (err) => {
                     if (err)
                         throw err;
-                    console.log(`Removed manager with ID ${selectedId} from the managers table.`);
-                    startApp(); // Restart the app after completion
+                    console.log('Employee promoted to manager.');
+                    startApp();
                 });
             });
         });
     });
 }
-renderManagerTable();
+function demoteManager() {
+    db.query('SELECT * FROM employee WHERE is_manager = true', (err, res) => {
+        if (err)
+            throw err;
+        const managers = res.rows.map((manager) => ({
+            name: `${manager.first_name} ${manager.last_name}`,
+            value: manager.id
+        }));
+        if (managers.length === 0) {
+            console.log('No managers available to demote.');
+            return startApp();
+        }
+        inquirer.prompt({
+            type: 'list',
+            name: 'employee_id',
+            message: 'Select the manager to demote:',
+            choices: managers
+        }).then((answer) => {
+            db.query('UPDATE employee SET is_manager = false WHERE id = $1', [answer.employee_id], (err) => {
+                if (err)
+                    throw err;
+                db.query('DELETE FROM managers WHERE id = $1', [answer.employee_id], (err) => {
+                    if (err)
+                        throw err;
+                    console.log('Manager demoted.');
+                    startApp();
+                });
+            });
+        });
+    });
+}
+// Start the application
+startApp();
