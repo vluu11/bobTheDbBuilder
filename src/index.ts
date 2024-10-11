@@ -15,6 +15,7 @@ function startApp(): void {
       'Add a role',
       'Add an employee',
       'Update employee role',
+      "Update employee's manager",
       'Update managers',
       'Exit'
     ]
@@ -43,6 +44,9 @@ function startApp(): void {
         break;
       case 'Update employee role':
         updateEmployeeRole();
+        break;
+      case "Update employee's manager":
+        updateEmployeeManagers();
         break;
       case 'Update managers':
         updateManagers();
@@ -425,6 +429,67 @@ function updateManagers(){
           break;
       }
     })
+}
+
+function updateEmployeeManagers(){
+  db.query('SELECT * FROM employee', (err, employeesRes) => {
+    if(err) throw err;
+
+    const employees = employeesRes.rows.map(employee => ({
+      name: `${employee.first_name } ${ employee.last_name}`,
+      value: employee.id
+    }))
+
+    db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeesRes) => {
+      if(err) throw err;
+  
+        const managers = employeesRes.rows.map(manager => ({
+          name: `${manager.first_name } ${ manager.last_name}`,
+          value: manager.id
+        }))
+
+        if(managers.length === 0){
+          console.log("There are no available managers");
+          return startApp();
+        }
+
+        managers.push({name:'None', value: null});
+
+        inquirer
+          .prompt([ 
+            {
+              type: 'list',
+              name: 'updateEmpManager',
+              message:' Select an employee.',
+              choices: employees
+            },
+            {
+              type:'list',
+              name:'selectManager',
+              message:'Select a manager to change to.',
+              choices: managers
+            }
+          ])
+          .then(res => {
+            console.log(res);
+
+            if(res.updateEmpManager !== res.selectManager){
+              db.query('UPDATE employee SET manager_id = $1 WHERE id = $2', [res.selectManager, res.updateEmpManager], (err) =>{
+                if(err) throw err;
+  
+                startApp();
+              });
+            }else{
+              console.log('You cannot select yourself. Select another option.');
+              startApp();
+            }
+
+            
+          })
+      }
+    )
+
+  })
 }
 // Start the application
 startApp();
