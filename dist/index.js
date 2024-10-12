@@ -1,5 +1,5 @@
-import inquirer from 'inquirer'; // import Inquirer for prompts
-import db from './db.js'; // import your PostgreSQL connection
+import inquirer from 'inquirer';
+import db from './db.js';
 function startApp() {
     inquirer.prompt({
         type: 'list',
@@ -285,7 +285,6 @@ function promoteToManager() {
             db.query('UPDATE employee SET is_manager = true WHERE id = $1', [answer.employee_id], (err) => {
                 if (err)
                     throw err;
-                // Use renderManagerTable logic here to add manager to 'managers' table
                 renderManagerTable();
                 console.log('Employee promoted to manager.');
                 startApp();
@@ -311,23 +310,17 @@ function demoteManager() {
             message: 'Select the manager to demote:',
             choices: managers
         }).then((answer) => {
-            // Step 1: Update the employee's is_manager status to false
             db.query('UPDATE employee SET is_manager = false WHERE id = $1', [answer.employee_id], (err) => {
                 if (err)
                     throw err;
-                // Step 2: Now, delete the manager from the managers table
                 db.query('SELECT * FROM managers', (err, managersRes) => {
                     if (err)
                         throw err;
-                    const employee = res.rows[0]; // Get the first employee from the results
-                    // Log the employee's full name
+                    const employee = res.rows[0];
                     const employeeFullName = `${employee.first_name} ${employee.last_name}`;
                     console.log('Answer Employee Full Name:', employeeFullName);
-                    // Now, find the corresponding manager based on first name and last name
                     const managerToDelete = managersRes.rows.find(manager => manager.first_name === employee.first_name && manager.last_name === employee.last_name);
-                    // Log the result
                     if (managerToDelete) {
-                        // Proceed to delete the manager from the managers table
                         db.query('DELETE FROM managers WHERE first_name = $1 AND last_name = $2', [managerToDelete.first_name, managerToDelete.last_name], (err) => {
                             if (err)
                                 throw err;
@@ -345,12 +338,10 @@ function demoteManager() {
         });
     });
 }
-// Function to handle inserting managers to the 'managers' table
 function renderManagerTable() {
     db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
         if (err)
             throw err;
-        // Check if any managers were found
         if (employeeRes.rows.length === 0) {
             console.log("No managers found.");
             return startApp();
@@ -359,11 +350,9 @@ function renderManagerTable() {
             if (err)
                 throw err;
             const currentManagers = managersRes.rows.map(manager => manager.last_name);
-            // Insert new managers into 'managers' table
             employeeRes.rows.forEach(manager => {
                 if (!currentManagers.includes(manager.last_name)) {
-                    db.query('INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', [manager.first_name, manager.last_name, manager.role_id, manager.manager_id || null, manager.is_manager], // Set manager_id to null if it is not available
-                    (err, res) => {
+                    db.query('INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)', [manager.first_name, manager.last_name, manager.role_id, manager.manager_id || null, manager.is_manager], (err, res) => {
                         if (err) {
                             console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
                         }
@@ -453,16 +442,13 @@ function updateEmployeeManagers() {
     });
 }
 function viewEmployeesByManager() {
-    // Step 1: Fetch all employees who are managers (is_manager = true)
-    db.query('SELECT * FROM employee WHERE is_manager = true', (err, employeesRes) => {
+    db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeesRes) => {
         if (err)
             throw err;
-        // Step 2: Map the managers data
         const managers = employeesRes.rows.map(manager => ({
             name: `${manager.first_name} ${manager.last_name}`,
-            id: manager.id // Use the manager's employee id
+            id: manager.id
         }));
-        // Ensure there are valid managers
         if (managers.length === 0) {
             console.log('No managers found.');
             return startApp();
@@ -471,7 +457,6 @@ function viewEmployeesByManager() {
             name: manager.name,
             value: manager.id
         }));
-        // Step 3: Prompt the user to select a manager
         inquirer.prompt({
             type: 'list',
             name: 'selectedManager',
@@ -481,7 +466,6 @@ function viewEmployeesByManager() {
             .then(answer => {
             const selectedManagerId = answer.selectedManager;
             console.log(selectedManagerId);
-            // Step 4: Fetch employees who report to the selected manager
             db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedManagerId], (err, res) => {
                 if (err)
                     throw err;
@@ -489,14 +473,11 @@ function viewEmployeesByManager() {
                     console.log('No employees found for the selected manager.');
                 }
                 else {
-                    // Step 5: Display the employees reporting to the selected manager
-                    console.log(`Employees reporting to Manager ID ${selectedManagerId}:`);
                     console.table(res.rows);
                 }
-                startApp(); // Call the startApp function to return to the main menu or restart the app
+                startApp();
             });
         });
     });
 }
-// Start the application
 startApp();

@@ -340,9 +340,6 @@ function demoteManager(): void {
 
           const employee = res.rows[0]; 
 
-          const employeeFullName = `${employee.first_name} ${employee.last_name}`;
-          console.log('Answer Employee Full Name:', employeeFullName);
-
           const managerToDelete = managersRes.rows.find(manager => 
             manager.first_name === employee.first_name && manager.last_name === employee.last_name
           );
@@ -513,8 +510,6 @@ function viewEmployeesByManager() {
       })
       .then(answer => {
       const selectedManagerId = answer.selectedManager;
-
-      console.log(selectedManagerId);
 
       db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedManagerId], (err, res) => {
         if (err) throw err;
