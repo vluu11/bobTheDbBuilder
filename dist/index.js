@@ -10,6 +10,7 @@ function startApp() {
             'View all roles',
             'View all employees',
             'View all managers',
+            'View employees by managers',
             'Add a department',
             'Add a role',
             'Add an employee',
@@ -31,6 +32,9 @@ function startApp() {
                 break;
             case 'View all managers':
                 viewManagers();
+                break;
+            case 'View employees by managers':
+                viewEmployeesByManager();
                 break;
             case 'Add a department':
                 addDepartment();
@@ -441,9 +445,55 @@ function updateEmployeeManagers() {
                     });
                 }
                 else {
-                    console.log('You cannot select yourself');
+                    console.log('You cannot select yourself. Select another option.');
                     startApp();
                 }
+            });
+        });
+    });
+}
+function viewEmployeesByManager() {
+    // Step 1: Fetch all employees who are managers (is_manager = true)
+    db.query('SELECT * FROM employee WHERE is_manager = true', (err, employeesRes) => {
+        if (err)
+            throw err;
+        // Step 2: Map the managers data
+        const managers = employeesRes.rows.map(manager => ({
+            name: `${manager.first_name} ${manager.last_name}`,
+            id: manager.id // Use the manager's employee id
+        }));
+        // Ensure there are valid managers
+        if (managers.length === 0) {
+            console.log('No managers found.');
+            return startApp();
+        }
+        const managersList = managers.map(manager => ({
+            name: manager.name,
+            value: manager.id
+        }));
+        // Step 3: Prompt the user to select a manager
+        inquirer.prompt({
+            type: 'list',
+            name: 'selectedManager',
+            message: 'Select a manager to view their employees:',
+            choices: managersList
+        })
+            .then(answer => {
+            const selectedManagerId = answer.selectedManager;
+            console.log(selectedManagerId);
+            // Step 4: Fetch employees who report to the selected manager
+            db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedManagerId], (err, res) => {
+                if (err)
+                    throw err;
+                if (res.rows.length === 0) {
+                    console.log('No employees found for the selected manager.');
+                }
+                else {
+                    // Step 5: Display the employees reporting to the selected manager
+                    console.log(`Employees reporting to Manager ID ${selectedManagerId}:`);
+                    console.table(res.rows);
+                }
+                startApp(); // Call the startApp function to return to the main menu or restart the app
             });
         });
     });

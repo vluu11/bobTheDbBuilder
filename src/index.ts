@@ -1,5 +1,5 @@
-import inquirer from 'inquirer'; // import Inquirer for prompts
-import db from './db.js'; // import your PostgreSQL connection
+import inquirer from 'inquirer'; 
+import db from './db.js'; 
 
 function startApp(): void {
   inquirer.prompt({
@@ -11,6 +11,7 @@ function startApp(): void {
       'View all roles',
       'View all employees',
       'View all managers',
+      'View employees by managers',
       'Add a department',
       'Add a role',
       'Add an employee',
@@ -32,6 +33,9 @@ function startApp(): void {
         break;
       case 'View all managers':
         viewManagers();
+        break;
+      case 'View employees by managers':
+        viewEmployeesByManager();
         break;
       case 'Add a department':
         addDepartment();
@@ -298,7 +302,6 @@ function promoteToManager(): void {
       db.query('UPDATE employee SET is_manager = true WHERE id = $1', [answer.employee_id], (err: Error | null) => {
         if (err) throw err;
         
-        // Use renderManagerTable logic here to add manager to 'managers' table
         renderManagerTable();
 
         console.log('Employee promoted to manager.');
@@ -328,29 +331,24 @@ function demoteManager(): void {
       message: 'Select the manager to demote:',
       choices: managers
     }).then((answer) => {
-      // Step 1: Update the employee's is_manager status to false
+
       db.query('UPDATE employee SET is_manager = false WHERE id = $1', [answer.employee_id], (err: Error | null) => {
         if (err) throw err;
 
-        // Step 2: Now, delete the manager from the managers table
         db.query('SELECT * FROM managers', (err: Error | null, managersRes) => {
           if (err) throw err;
 
-          const employee = res.rows[0]; // Get the first employee from the results
+          const employee = res.rows[0]; 
 
-          // Log the employee's full name
           const employeeFullName = `${employee.first_name} ${employee.last_name}`;
           console.log('Answer Employee Full Name:', employeeFullName);
 
-          // Now, find the corresponding manager based on first name and last name
           const managerToDelete = managersRes.rows.find(manager => 
             manager.first_name === employee.first_name && manager.last_name === employee.last_name
           );
 
-          // Log the result
           if (managerToDelete) {
             
-            // Proceed to delete the manager from the managers table
             db.query('DELETE FROM managers WHERE first_name = $1 AND last_name = $2', [managerToDelete.first_name, managerToDelete.last_name], (err: Error | null) => {
               if (err) throw err;
               console.log('Manager demoted and removed from the managers table.');
@@ -368,13 +366,10 @@ function demoteManager(): void {
   });
 }
 
-
-// Function to handle inserting managers to the 'managers' table
 function renderManagerTable() {
   db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
     if (err) throw err;
 
-    // Check if any managers were found
     if (employeeRes.rows.length === 0) {
       console.log("No managers found.");
       return startApp(); 
@@ -385,12 +380,11 @@ function renderManagerTable() {
 
       const currentManagers = managersRes.rows.map(manager => manager.last_name);
 
-      // Insert new managers into 'managers' table
       employeeRes.rows.forEach(manager => {
         if (!currentManagers.includes(manager.last_name)) {
           db.query(
             'INSERT INTO managers (first_name, last_name, role_id, manager_id, is_manager) VALUES ($1, $2, $3, $4, $5)',
-            [manager.first_name, manager.last_name, manager.role_id, manager.manager_id || null, manager.is_manager], // Set manager_id to null if it is not available
+            [manager.first_name, manager.last_name, manager.role_id, manager.manager_id || null, manager.is_manager], 
             (err, res) => {
               if (err) {
                 console.error(`Error inserting manager ${manager.first_name} ${manager.last_name}:`, err);
@@ -491,5 +485,51 @@ function updateEmployeeManagers(){
 
   })
 }
-// Start the application
+
+function viewEmployeesByManager() {
+  db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeesRes) => {
+    if (err) throw err;
+
+    const managers = employeesRes.rows.map(manager => ({
+      name: `${manager.first_name} ${manager.last_name}`,
+      id: manager.id 
+    }));
+
+    if (managers.length === 0) {
+      console.log('No managers found.');
+      return startApp();
+    }
+
+    const managersList = managers.map(manager => ({
+      name: manager.name,
+      value: manager.id}))
+
+    inquirer.prompt(
+      {
+      type: 'list',
+      name: 'selectedManager',
+      message: 'Select a manager to view their employees:',
+      choices: managersList
+      })
+      .then(answer => {
+      const selectedManagerId = answer.selectedManager;
+
+      console.log(selectedManagerId);
+
+      db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedManagerId], (err, res) => {
+        if (err) throw err;
+
+        if (res.rows.length === 0) {
+          console.log('No employees found for the selected manager.');
+        } else {
+
+          console.table(res.rows);
+        }
+
+        startApp(); 
+      });
+    });
+  });
+}
+
 startApp();
