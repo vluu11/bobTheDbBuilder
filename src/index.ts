@@ -1,5 +1,6 @@
 import inquirer from 'inquirer'; 
 import db from './db.js'; 
+import { start } from 'repl';
 
 function startApp(): void {
   inquirer.prompt({
@@ -13,6 +14,7 @@ function startApp(): void {
       'View all managers',
       'View employees by managers',
       'View employees by department',
+      'View total utilized budget',
       'Add a department',
       'Add a role',
       'Add an employee',
@@ -21,6 +23,7 @@ function startApp(): void {
       'Update managers',
       'Delete a department',
       'Delete a role',
+      'Delete an employee',
       'Exit'
     ]
   }).then((answer) => {
@@ -42,6 +45,9 @@ function startApp(): void {
         break;
       case 'View employees by department':
         viewEmployeesByDepartment();
+        break;
+      case 'View total utilized budget':
+        viewTotalBudget();
         break;
       case 'Add a department':
         addDepartment();
@@ -66,6 +72,9 @@ function startApp(): void {
         break;
       case 'Delete a role':
         deleteRole();
+        break;
+      case 'Delete an employee':
+        deleteEmployee();
         break;
       default:
         db.end();
@@ -713,4 +722,87 @@ function deleteRole(){
 
   });
 }
+
+function deleteEmployee() {
+  db.query('SELECT * FROM employee', (err, employeeRes) => {
+    if (err) throw err;
+
+    const employees = employeeRes.rows.map(employee => ({
+      name: `${employee.first_name} ${employee.last_name}`,
+      value: employee
+    }));
+
+    inquirer
+      .prompt({
+        type: 'list',
+        name: 'selectedEmployee',
+        message: 'Select an employee to delete',
+        choices: employees
+      })
+      .then(res => {
+        const selectedEmployee = res.selectedEmployee;
+
+        db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedEmployee.id], (err, managerRes) => {
+          if (err) throw err;
+
+          if (managerRes.rows.length > 0) {
+
+            db.query('UPDATE employee SET manager_id = NULL WHERE manager_id = $1', [selectedEmployee.id], (err) => {
+              if (err) throw err;
+
+              console.log('Employees under this manager will have their manager_id set to NULL.');
+            });
+          }
+
+   
+          db.query('DELETE FROM managers WHERE first_name = $1 AND last_name = $2', [selectedEmployee.first_name, selectedEmployee.last_name], (err) => {
+            if (err) throw err;
+
+          
+            db.query('DELETE FROM employee WHERE id = $1', [selectedEmployee.id], (err) => {
+              if (err) throw err;
+
+              console.log('Employee successfully deleted.');
+              startApp();
+            });
+          });
+        });
+      });
+  });
+}
+
+function viewTotalBudget() {
+  db.query('SELECT * FROM employee', (err, employeesRes) => {
+    if (err) throw err;
+
+    const roleIds = employeesRes.rows.map(employee => employee.role_id);
+
+    const salaryPromises: Promise<number>[] = roleIds.map(roleId => {
+      return new Promise((resolve, reject) => {
+        db.query('SELECT salary FROM role WHERE id = $1', [roleId], (err, budgetRes) => {
+          if (err) {
+            reject(err);
+          } else {
+
+            const salary = budgetRes.rows.length > 0 ? Number(budgetRes.rows[0].salary) : 0; 
+            resolve(salary);
+          }
+        });
+      });
+    });
+
+    Promise.all(salaryPromises)
+      .then((salaries: number[]) => {
+        const totalBudget = salaries.reduce((total: number, salary: number) => total + salary, 0);
+        console.log(`Total Budget: $${totalBudget}`);
+        startApp();
+      })
+      .catch(err => {
+        console.error('Error retrieving salaries:', err);
+        startApp(); 
+      });
+  });
+}
+
 startApp();
+

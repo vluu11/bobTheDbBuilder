@@ -24,7 +24,7 @@ CREATE TABLE managers (
     first_name VARCHAR(30),
     last_name VARCHAR(30),
     role_id INTEGER NOT NULL REFERENCES role(id),
-    manager_id INTEGER REFERENCES employee(manager_id),
+    manager_id INTEGER,
     is_manager BOOLEAN
 )
 
