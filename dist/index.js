@@ -11,12 +11,15 @@ function startApp() {
             'View all employees',
             'View all managers',
             'View employees by managers',
+            'View employees by department',
             'Add a department',
             'Add a role',
             'Add an employee',
             'Update employee role',
             "Update employee's manager",
             'Update managers',
+            'Delete a department',
+            'Delete a role',
             'Exit'
         ]
     }).then((answer) => {
@@ -36,6 +39,9 @@ function startApp() {
             case 'View employees by managers':
                 viewEmployeesByManager();
                 break;
+            case 'View employees by department':
+                viewEmployeesByDepartment();
+                break;
             case 'Add a department':
                 addDepartment();
                 break;
@@ -53,6 +59,12 @@ function startApp() {
                 break;
             case 'Update managers':
                 updateManagers();
+                break;
+            case 'Delete a department':
+                deleteDepartment();
+                break;
+            case 'Delete a role':
+                deleteRole();
                 break;
             default:
                 db.end();
@@ -181,7 +193,7 @@ function addEmployee() {
                 throw err;
             const managers = employeeRes.rows.map((employee) => ({
                 name: `${employee.first_name} ${employee.last_name}`,
-                value: employee.id,
+                value: employee.id
             }));
             managers.push({ name: 'None', value: -1 });
             inquirer.prompt([
@@ -317,8 +329,6 @@ function demoteManager() {
                     if (err)
                         throw err;
                     const employee = res.rows[0];
-                    const employeeFullName = `${employee.first_name} ${employee.last_name}`;
-                    console.log('Answer Employee Full Name:', employeeFullName);
                     const managerToDelete = managersRes.rows.find(manager => manager.first_name === employee.first_name && manager.last_name === employee.last_name);
                     if (managerToDelete) {
                         db.query('DELETE FROM managers WHERE first_name = $1 AND last_name = $2', [managerToDelete.first_name, managerToDelete.last_name], (err) => {
@@ -465,7 +475,6 @@ function viewEmployeesByManager() {
         })
             .then(answer => {
             const selectedManagerId = answer.selectedManager;
-            console.log(selectedManagerId);
             db.query('SELECT * FROM employee WHERE manager_id = $1', [selectedManagerId], (err, res) => {
                 if (err)
                     throw err;
@@ -476,6 +485,122 @@ function viewEmployeesByManager() {
                     console.table(res.rows);
                 }
                 startApp();
+            });
+        });
+    });
+}
+function viewEmployeesByDepartment() {
+    db.query('SELECT * FROM department', (err, departmentRes) => {
+        if (err)
+            throw err;
+        const departments = departmentRes.rows.map(department => ({
+            name: department.name,
+            value: department.id
+        }));
+        inquirer
+            .prompt({
+            type: 'list',
+            name: 'selectedDepartment',
+            message: "Select department to view employees.",
+            choices: departments
+        })
+            .then(res => {
+            db.query('SELECT * FROM employee WHERE role_id = $1', [res.selectedDepartment], (err, selectedDepartmentRes) => {
+                if (err)
+                    throw err;
+                if (selectedDepartmentRes.rows.length === 0) {
+                    console.log('No employees found for the selected manager.');
+                }
+                else {
+                    console.log(res);
+                    console.table(selectedDepartmentRes.rows);
+                }
+                startApp();
+            });
+        });
+    });
+}
+function deleteDepartment() {
+    db.query('SELECT * FROM department', (err, departmentRes) => {
+        if (err)
+            throw err;
+        const departments = departmentRes.rows.map(department => ({
+            name: department.name,
+            value: department.id
+        }));
+        inquirer
+            .prompt([{
+                type: 'list',
+                name: 'selectedDepartment',
+                message: 'Select a department to delete',
+                choices: departments
+            },
+            {
+                type: 'confirm',
+                name: 'confirmation',
+                message: 'Are you sure? Deleting a department will, delete all roles associated with this department.'
+            }
+        ])
+            .then(res => {
+            if (res.confirmation) {
+                db.query('SELECT * FROM employee WHERE role_id = $1', [res.selectedDepartment], (err, employeeRes) => {
+                    if (err)
+                        throw err;
+                    if (employeeRes.rows.length > 0) {
+                        console.log('Cannot delete.There are currently employees that occupy this role.');
+                        startApp();
+                    }
+                    else {
+                        db.query('DELETE FROM role WHERE department_id = $1', [res.selectedDepartment], (err) => {
+                            if (err)
+                                throw err;
+                            db.query('DELETE FROM department WHERE id = $1', [res.selectedDepartment], (err) => {
+                                if (err)
+                                    throw err;
+                                console.log('Department was successfully deleted');
+                                startApp();
+                            });
+                        });
+                    }
+                });
+            }
+            else {
+                startApp();
+            }
+        });
+    });
+}
+function deleteRole() {
+    db.query('SELECT * FROM role', (err, roleRes) => {
+        if (err)
+            throw err;
+        const roles = roleRes.rows.map(role => ({
+            name: role.title,
+            value: role.id
+        }));
+        inquirer
+            .prompt({
+            type: 'list',
+            name: 'selectedRole',
+            message: 'Select a role to delete',
+            choices: roles
+        })
+            .then(res => {
+            db.query('SELECT * FROM employee WHERE role_id = $1', [res.selectedRole], (err, employeeRes) => {
+                if (err)
+                    throw err;
+                if (employeeRes.rows.length > 0) {
+                    console.log('Cannot delete.There are currently employees that occupy this role.');
+                    startApp();
+                }
+                else {
+                    db.query('DELETE FROM role WHERE id = $1', [res.selectedRole], (err) => {
+                        if (err)
+                            throw err;
+                        console.log('Role was sucessfully delted.');
+                        startApp();
+                    });
+                }
             });
         });
     });
