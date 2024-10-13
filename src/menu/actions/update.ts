@@ -1,7 +1,7 @@
 import inquirer from 'inquirer'; 
-import db from '../connection/connection.js'; 
-import startApp from '../app/startApp.js';
-import {promoteToManager, demoteManager} from './assignStaff.js';
+import db from '../../connection/connection.js'; 
+import startApp from '../../app/startApp.js';
+import {promoteToManager, demoteManager} from './assign.js';
 
 function updateEmployeeRole(): void {
     db.query('SELECT * FROM employee', (err: Error | null, employeeRes: any) => {
@@ -57,7 +57,8 @@ function updateEmployeeRole(): void {
           message: 'Would you like to promote or demote an employee?',
           choices: [
             'Promote an employee',
-            'Demote a manager'
+            'Demote a manager',
+            'Exit'
           ]
         }
       ).then(res =>{
@@ -68,6 +69,8 @@ function updateEmployeeRole(): void {
           case 'Demote a manager':
             demoteManager();
             break;
+          default:
+            return startApp();
         }
       });
   }

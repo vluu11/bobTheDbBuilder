@@ -1,6 +1,6 @@
 import inquirer from 'inquirer'; 
-import db from '../connection/connection.js'; 
-import startApp from '../app/startApp.js';
+import db from '../../connection/connection.js'; 
+import startApp from '../../app/startApp.js';
 
 function addDepartment(): void {
     inquirer.prompt({

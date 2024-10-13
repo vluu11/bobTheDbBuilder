@@ -1,5 +1,5 @@
-import db from '../connection/connection.js'; 
-import startApp from '../app/startApp.js';
+import db from '../../connection/connection.js'; 
+import startApp from '../../app/startApp.js';
 
 function renderManagerTable() {
     db.query('SELECT * FROM employee WHERE is_manager = TRUE', (err, employeeRes) => {
