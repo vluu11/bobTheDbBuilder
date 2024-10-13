@@ -1,6 +1,5 @@
 import inquirer from 'inquirer'; 
 import db from './db.js'; 
-import { start } from 'repl';
 
 function startApp(): void {
   inquirer.prompt({
