@@ -26,7 +26,7 @@ To use this app, the user should run `npm run start` in the terminal. This will 
 
 Vuong Luu
  - repo: https://github.com/vluu11/bobTheDbBuilder
- - video: https://drive.google.com/file/d/1llxz0TD8Z3VKTWzx1KBmPKWgl6r4A0Ep/view
+ - video: https://drive.google.com/file/d/1_mVp5qrkrQmpo1kylxOlawTjWazqe1lN/view
 
 ## License
     
